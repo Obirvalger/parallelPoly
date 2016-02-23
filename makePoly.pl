@@ -26,7 +26,8 @@ sub make_monom {
 }
 
 for my $n (1 .. $n_files) {
-    my $fname = "poly_${n_vars}_${n_funcs}_${n}.txt"; # шаблон имени файла
+    #my $fname = "poly_${n_vars}_${n_funcs}_${n}.txt"; # шаблон имени файла
+    my $fname = "poly_${n}.txt"; # шаблон имени файла
     open (my $fh, ">", $fname);
     for my $i (1..$n_funcs) {
         my $len = $min_len * $all_funcs + rand(($max_len - $min_len) * $all_funcs);
