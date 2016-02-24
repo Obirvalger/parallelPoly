@@ -165,25 +165,6 @@ public:
   }
 };
 
-void Reader(int i, int n_vars, myBlockingQueue<string> &q) {
-  M.lock();
-  cout << "Hello, Reader " << i << "!\n";
-  M.unlock();
-  string fname = "poly_" + std::to_string(i+1) + ".txt";
-  ifstream poly(fname);
-  string s;
-  while (poly >> s) {
-
-    M.lock();
-    std::cout << "R" << i << " " << s << std::endl;
-    M.unlock();
-
-    q.push(s);
-  }
-  q.done();
-  //cout<<"All done\n";
-}
-
 string conv(int number, int size) {
   string ret(size, '0');
   int i = 0, base = 2;
@@ -244,14 +225,16 @@ private:
   string poly;
   string &res;
   int n_vars, beg, end;
+  mutex &m_;
 
 public:
 
-  PolyRange(const string &p, string &r, int n, int b = 0, int e = -1) : \
-    poly(p), res(r), n_vars(n), beg(b), end(e) {};
+  PolyRange(mutex &m,const string &p, string &r, int n, int b = 0, int e = -1) : \
+    m_(m), poly(p), res(r), n_vars(n), beg(b), end(e) {};
 
   void operator() () {
     makeVec(poly, res, n_vars, beg, end);
+    m_.unlock();
   }
 
   friend ostream& ::operator<<(ostream& out, const PolyRange& pr) {
@@ -260,9 +243,40 @@ public:
   	return out;
   }
 
+  string gp() {return poly;}
 };
 
-void Solver(int i, int n_vars, myBlockingQueue<string> &q, const vector<string> &bins) {
+void Reader(int i, int n_vars, myBlockingQueue<PolyRange> &q) {
+  M.lock();
+  cout << "Hello, Reader " << i << "!\n";
+  M.unlock();
+  mutex d;
+  string fname = "poly_" + std::to_string(i+1) + ".txt";
+  ifstream poly(fname);
+  string s;
+  string res;
+  while (poly >> s) {
+    res = string(pow2(n_vars),'0');
+
+    M.lock();
+    std::cout << "I R" << i << " " << s << std::endl;
+    M.unlock();
+
+    d.lock();
+    q.push(PolyRange(d,s,res,n_vars));
+
+    d.lock();
+    //sleep(2);
+    M.lock();
+    std::cout << "O R" << i << " " << res << std::endl;
+    M.unlock();
+    d.unlock();
+  }
+  q.done();
+  //cout<<"All done\n";
+}
+
+void Solver(int i, int n_vars, myBlockingQueue<PolyRange> &q, const vector<string> &bins) {
   //sleep(1);
   M.lock();
   cout << "Hello, Solver " << i << "!\n";
@@ -270,12 +284,14 @@ void Solver(int i, int n_vars, myBlockingQueue<string> &q, const vector<string> 
   string s;
 
   while (!q.empty()) {
-    s = q.pop();
-    string res(pow2(n_vars),'0');
-    makeVec(s,res,n_vars);
+    PolyRange pr = q.pop();
+    pr();
+    /*string res(pow2(n_vars),'0');
+    makeVec(s,res,n_vars);*/
 
     M.lock();
-    cout << "S" << i << " " << s << endl << res << endl;
+    cout << "I S" << i << " " << pr.gp() << endl;
+    cout << "O S" << i << " " << pr << endl;// << res << endl;
     M.unlock();
 
     usleep(1);
@@ -287,35 +303,48 @@ bool odd(int i) {
 }
 
 int main () {
-  int ns = 3, nr = 4, n_vars = 3, i = 0;
+  int ns = 3, nr = 2, n_vars = 3, i = 0;
+
+  /*string res(pow2(n_vars),'0');
+  string poly = "x1x2+x1";
+  PolyRange pr(poly, res, n_vars, 0, 5);
+  pr();
+  std::cout << res << endl <<  pr << std::endl;*/
+
   thread readers[nr];
   thread solvers[ns];
-  myBlockingQueue<string> q(nr);
+  myBlockingQueue<PolyRange> q(nr);
   vector<string> bins = allVectors(n_vars);
 
   for( i=0; i < nr; i++ ) {
     M.lock();
-    cout << "main() : creating reader, " << i << endl;
+    //cout << "main() : creating reader, " << i << endl;
     M.unlock();
     readers[i] = thread(Reader, i, n_vars, ref(q));
+  }
+
+  /*for( i=0; i < nr; i++ ) {
+    readers[i].detach();
+  }*/
+
+  usleep(100);
+
+  for( i=0; i < ns; i++ ) {
+    M.lock();
+    //cout << "main() : creating solver, " << i << endl;
+    M.unlock();
+    solvers[i] = thread(Solver, i, n_vars, ref(q), ref(bins));
   }
 
   for( i=0; i < nr; i++ ) {
     readers[i].join();
   }
 
-  usleep(100);
-
-  for( i=0; i < ns; i++ ) {
-    M.lock();
-    cout << "main() : creating solver, " << i << endl;
-    M.unlock();
-    solvers[i] = thread(Solver, i, n_vars, ref(q), ref(bins));
-  }
-
   for( i=0; i < ns; i++ ) {
     solvers[i].join();
   }
+
+  //sleep(20);
 
   cout<<"\nAll done!\n";
 }
