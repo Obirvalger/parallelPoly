@@ -288,13 +288,6 @@ bool odd(int i) {
 
 int main () {
   int ns = 3, nr = 4, n_vars = 3, i = 0;
-
-  /*string res(pow2(n_vars),'0');
-  string poly = "x1x2+x1";
-  PolyRange pr(poly, res, n_vars, 0, 5);
-  pr();
-  std::cout << res << endl <<  pr << std::endl;*/
-
   thread readers[nr];
   thread solvers[ns];
   myBlockingQueue<string> q(nr);
