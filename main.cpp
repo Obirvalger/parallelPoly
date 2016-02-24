@@ -239,6 +239,29 @@ void makeVec(const string &poly, string &res, int n_vars, int beg = 0, int end =
   }
 }
 
+class PolyRange {
+private:
+  string poly;
+  string &res;
+  int n_vars, beg, end;
+
+public:
+
+  PolyRange(const string &p, string &r, int n, int b = 0, int e = -1) : \
+    poly(p), res(r), n_vars(n), beg(b), end(e) {};
+
+  void operator() () {
+    makeVec(poly, res, n_vars, beg, end);
+  }
+
+  friend ostream& ::operator<<(ostream& out, const PolyRange& pr) {
+    out << pr.res;
+
+  	return out;
+  }
+
+};
+
 void Solver(int i, int n_vars, myBlockingQueue<string> &q, const vector<string> &bins) {
   //sleep(1);
   M.lock();
@@ -264,11 +287,13 @@ bool odd(int i) {
 }
 
 int main () {
-  int ns = 3, nr = 3, n_vars = 5, i = 0;
+  int ns = 3, nr = 4, n_vars = 3, i = 0;
 
   /*string res(pow2(n_vars),'0');
-  makeVec("1",res,n_vars);
-  cout<<code("1",n_vars)<<endl<<res<<endl;*/
+  string poly = "x1x2+x1";
+  PolyRange pr(poly, res, n_vars, 0, 5);
+  pr();
+  std::cout << res << endl <<  pr << std::endl;*/
 
   thread readers[nr];
   thread solvers[ns];
