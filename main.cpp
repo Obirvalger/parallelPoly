@@ -52,6 +52,10 @@ vector<string> split(const string& s, char c) {
   return v;
 }
 
+int pow2(int i) {
+  return 2 << (i-1);
+}
+
 template <typename T>
 ostream& operator<<(ostream& out, const vector<T>& v) {
   out << '[';
@@ -180,48 +184,6 @@ void Reader(int i, int n_vars, myBlockingQueue<string> &q) {
   //cout<<"All done\n";
 }
 
-string code(string monom, int n_vars) {
-  string res(n_vars, '0');
-  //cout<<monom<<endl<<res<<endl;
-  vector<string> vs = tail(split(monom, 'x'));
-
-  for (int i = 0; i < vs.size(); ++i) {
-    res[atoi(vs[i].c_str()) - 1] = '1';
-  }
-
-  return res;
-}
-
-bool le(string s1, string s2) {
-  for (int i = 0; i < s2.length(); ++i) {
-    if (s2[i] < s1[i])
-      return false;
-  }
-
-  return true;
-}
-
-void Solver(int i, int n_vars, myBlockingQueue<string> &q, const vector<string> &bins) {
-  //sleep(1);
-  M.lock();
-  cout << "Hello, Solver " << i << "!\n";
-  M.unlock();
-  string s;
-  vector<string> v;
-  auto codeN = [n_vars] (string s) {return code(s, n_vars);};
-
-  while (!q.empty()) {
-    s = q.pop();
-    v = split(s, '+');
-
-    M.lock();
-    cout << "S" << i << " " << s << endl << v << map(codeN, v);
-    M.unlock();
-
-    usleep(1);
-  }
-}
-
 string conv(int number, int size) {
   string ret(size, '0');
   int i = 0, base = 2;
@@ -244,6 +206,62 @@ vector<string> allVectors(int n_vars) {
   return res;
 }
 
+
+string code(string monom, int n_vars) {
+  string res(n_vars, '0');
+  //cout<<monom<<endl<<res<<endl;
+  vector<string> vs = tail(split(monom, 'x'));
+
+  for (int i = 0; i < vs.size(); ++i) {
+    res[atoi(vs[i].c_str()) - 1] = '1';
+  }
+
+  return res;
+}
+
+bool le(string s1, string s2) {
+  for (int i = 0; i < s2.length(); ++i) {
+    if (s2[i] < s1[i])
+      return false;
+  }
+
+  return true;
+}
+
+string makeVec(string poly, int n_vars, int beg = 0, int end = -1) {
+  auto vectors = allVectors(n_vars);
+  string res(pow2(n_vars),'0');
+  if (end < 0)
+    end = vectors.size();
+  vector<string> v = map(bind(code,_1,n_vars), split(poly, '+'));
+  for (int i = beg; i < end; ++i) {
+    res[i] = '0' + filter(bind(le,_1,vectors[i]), v).size() % 2;
+  }
+
+  return res;
+}
+
+void Solver(int i, int n_vars, myBlockingQueue<string> &q, const vector<string> &bins) {
+  //sleep(1);
+  M.lock();
+  cout << "Hello, Solver " << i << "!\n";
+  M.unlock();
+  string s;
+  vector<string> v;
+  auto codeN = [n_vars] (string s) {return code(s, n_vars);};
+
+  while (!q.empty()) {
+    s = q.pop();
+    v = split(s, '+');
+
+    M.lock();
+    cout << "S" << i << " " << s << endl << makeVec(s,n_vars) << endl << makeVec(s,n_vars,7,-1) << endl;
+    M.unlock();
+
+    usleep(1);
+  }
+}
+
 bool odd(int i) {
   return i % 2;
 }
@@ -262,8 +280,9 @@ int main () {
   cout << filter(bind(le,"000",_1),vs);*/
   //cout << allVectors(4);
   //cout<<atoi("32");
+  //std::cout << makeVec("x1x2+x3", 3) << std::endl;
 
-  int ns = 1, nr = 1, n_vars = 3, i = 0;
+  int ns = 3, nr = 5, n_vars = 3, i = 0;
   thread readers[nr];
   thread solvers[ns];
   myBlockingQueue<string> q(nr);

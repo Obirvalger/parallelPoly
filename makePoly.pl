@@ -13,7 +13,7 @@ $n_funcs //= $n_vars; # число функций по умолчанию
 $n_files //= 3; #число файлов по умолчанию
 my $all_funcs = 2**$n_vars;
 my @vars = map {'x' . $_} 1..$n_vars;
-my ($min_len, $max_len) = (0.25, 0.65); # вариация длины полинома
+my ($min_len, $max_len) = (0.25, 1); # вариация длины полинома
 
 sub make_monom {
     my $r = '';
