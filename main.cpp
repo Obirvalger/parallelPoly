@@ -228,17 +228,15 @@ bool le(string s1, string s2) {
   return true;
 }
 
-string makeVec(string poly, int n_vars, int beg = 0, int end = -1) {
+void makeVec(const string &poly, string &res, int n_vars, int beg = 0, int end = -1) {
   auto vectors = allVectors(n_vars);
-  string res(pow2(n_vars),'0');
+  //string res(pow2(n_vars),'0');
   if (end < 0)
     end = vectors.size();
   vector<string> v = map(bind(code,_1,n_vars), split(poly, '+'));
   for (int i = beg; i < end; ++i) {
     res[i] = '0' + filter(bind(le,_1,vectors[i]), v).size() % 2;
   }
-
-  return res;
 }
 
 void Solver(int i, int n_vars, myBlockingQueue<string> &q, const vector<string> &bins) {
@@ -247,15 +245,14 @@ void Solver(int i, int n_vars, myBlockingQueue<string> &q, const vector<string> 
   cout << "Hello, Solver " << i << "!\n";
   M.unlock();
   string s;
-  vector<string> v;
-  auto codeN = [n_vars] (string s) {return code(s, n_vars);};
 
   while (!q.empty()) {
     s = q.pop();
-    v = split(s, '+');
+    string res(pow2(n_vars),'0');
+    makeVec(s,res,n_vars);
 
     M.lock();
-    cout << "S" << i << " " << s << endl << makeVec(s,n_vars) << endl << makeVec(s,n_vars,7,-1) << endl;
+    cout << "S" << i << " " << s << endl << res << endl;
     M.unlock();
 
     usleep(1);
@@ -267,22 +264,12 @@ bool odd(int i) {
 }
 
 int main () {
-  /*auto lambda_echo = [](int i ) { std::cout << i << std::endl; };
-  auto m2 = [](int i) { return i*2;};
-  std::vector<int> col{20,24,37,42,23,45,37};
-  for_each(tailIt(col),lambda_echo);
-  cout<<col;
-  vector<string> v = {"1","2","3","4"};
-  cout << code("x1x2x4", 5) << endl;
-  auto f = bind(less<int>(), _1, 30);
-  cout << filter(f, col);
-  vector<string> vs = {"000","101","100","110","111"};
-  cout << filter(bind(le,"000",_1),vs);*/
-  //cout << allVectors(4);
-  //cout<<atoi("32");
-  //std::cout << makeVec("x1x2+x3", 3) << std::endl;
+  int ns = 3, nr = 3, n_vars = 5, i = 0;
 
-  int ns = 3, nr = 5, n_vars = 3, i = 0;
+  /*string res(pow2(n_vars),'0');
+  makeVec("1",res,n_vars);
+  cout<<code("1",n_vars)<<endl<<res<<endl;*/
+
   thread readers[nr];
   thread solvers[ns];
   myBlockingQueue<string> q(nr);

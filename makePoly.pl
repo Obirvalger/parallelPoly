@@ -13,7 +13,7 @@ $n_funcs //= $n_vars; # число функций по умолчанию
 $n_files //= 3; #число файлов по умолчанию
 my $all_funcs = 2**$n_vars;
 my @vars = map {'x' . $_} 1..$n_vars;
-my ($min_len, $max_len) = (0.25, 1); # вариация длины полинома
+my ($min_len, $max_len) = (0.25, 0.65); # вариация длины полинома
 
 sub make_monom {
     my $r = '';
@@ -21,8 +21,8 @@ sub make_monom {
     while ((my $i , $_) = each @s) {
         $r .= $vars[$i] if $_;
     }
-    die "All bad s = @s" unless $r;
-    return $r;
+
+    return $r || '1';
 }
 
 for my $n (1 .. $n_files) {
@@ -33,7 +33,7 @@ for my $n (1 .. $n_files) {
         my $len = $min_len * $all_funcs + rand(($max_len - $min_len) * $all_funcs);
         my %f;
         for (1..$len) {
-            $f{make_monom (1 + rand $all_funcs)} = 1;
+            $f{make_monom (rand $all_funcs)} = 1;
         }
         say $fh join('+', keys %f);
     }
