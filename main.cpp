@@ -81,11 +81,6 @@ Collection tail(Collection col) {
   return  tailIt(col);
 }
 
-/*template <typename Collection,typename unop>
-void for_each(const Collection &col, unop op){
-  std::for_each(col.begin(),col.end(),op);
-}*/
-
 template <typename Collection,typename unop>
 Collection mapIt(unop op, Collection &col) {
   std::transform(col.begin(),col.end(),col.begin(),op);
@@ -116,40 +111,16 @@ private:
   mutex mutex_;
   queue<T> queue_;
   condition_variable cond_;
-  //int readers_;
 public:
   T pop() {
-  unique_lock<mutex> mlock(mutex_);
-  while (queue_.empty()) {
-    cond_.wait(mlock);
-  }
-  auto item = queue_.front();
-  queue_.pop();
-  return item;
-  /*  this->mutex_.lock();
-    T value = this->queue_.front();
-    this->queue_.pop();
-    this->mutex_.unlock();
-    return value;*/
-  }
-
-  /*myBlockingQueue(int r){
-    if (r < 0) {
-      cerr << "Need positive number";
-      exit(1);
+    unique_lock<mutex> mlock(mutex_);
+    while (queue_.empty()) {
+      cond_.wait(mlock);
     }
-    readers_ = r;
+    auto item = queue_.front();
+    queue_.pop();
+    return item;
   }
-
-  bool any() {
-    return readers_ > 0;
-  }
-
-  void done() {
-    this->mutex_.lock();
-    this->readers_--;
-    this->mutex_.unlock();
-  }*/
 
   void push(const T& item) {
     unique_lock<mutex> mlock(mutex_);
@@ -166,62 +137,61 @@ public:
   }
 };
 
-string conv(int number, int size) {
-  string ret(size, '0');
-  int i = 0, base = 2;
-  do {
-    ret[size - 1 - i++] = char('0') + number % base;
-    number = int(number / base);
-  } while (number);
+class Maker {
+private:
+  vector<string> all_vectors;
+  int n_vars;
+public:
+  string conv(int number, int size) {
+    string ret(size, '0');
+    int i = 0, base = 2;
+    do {
+      ret[size - 1 - i++] = char('0') + number % base;
+      number = int(number / base);
+    } while (number);
 
-  return ret;
-}
-
-vector<string> allVectors(int n_vars) {
-  int all = 2 << (n_vars - 1);
-  //cout << all << endl;
-  vector<string> res(all);
-  for (int i = 0; i < all; ++i) {
-    res[i] = conv(i, n_vars);
+    return ret;
   }
 
-  return res;
-}
-
-
-string code(string monom, int n_vars) {
-  string res(n_vars, '0');
-  //cout<<monom<<endl<<res<<endl;
-  vector<string> vs = tail(split(monom, 'x'));
-
-  for (int i = 0; i < vs.size(); ++i) {
-    res[atoi(vs[i].c_str()) - 1] = '1';
+  Maker(int n) {
+    n_vars = n;
+    int all = 2 << (n_vars - 1);
+    all_vectors = vector<string>(all);
+    for (int i = 0; i < all; ++i) {
+      all_vectors[i] = conv(i, n_vars);
+    }
   }
 
-  return res;
-}
+  static string code(string monom, int n_vars) {
+    string res(n_vars, '0');
+    vector<string> vs = tail(split(monom, 'x'));
 
-bool le(string s1, string s2) {
-  for (int i = 0; i < s2.length(); ++i) {
-    if (s2[i] < s1[i])
-      return false;
+    for (int i = 0; i < vs.size(); ++i) {
+      res[atoi(vs[i].c_str()) - 1] = '1';
+    }
+
+    return res;
   }
 
-  return true;
-}
+  static bool le(string s1, string s2) {
+    for (int i = 0; i < s2.length(); ++i) {
+      if (s2[i] < s1[i])
+        return false;
+    }
 
-void makeVec(const string &poly, string &res, int n_vars, int beg = 0, int end = -1) {
-  auto vectors = allVectors(n_vars);
-  //string res(pow2(n_vars),'0');
-  if (end < 0)
-    end = vectors.size();
-  vector<string> v = map(bind(code,_1,n_vars), split(poly, '+'));
-  //cout<<v;
-  for (int i = beg; i < end; ++i) {
-    res[i] = '0' + filter(bind(le,_1,vectors[i]), v).size() % 2;
-    //cout<<filter(bind(le,_1,vectors[i]), v)<<endl;
+    return true;
   }
-}
+
+  void operator () (const string &poly, string &res, int beg = 0, int end = -1) {
+    if (end < 0)
+      end = all_vectors.size();
+
+    vector<string> v = map(bind(code,_1,n_vars), split(poly, '+'));
+    for (int i = beg; i < end; ++i) {
+      res[i] = '0' + filter(bind(le,_1,all_vectors[i]), v).size() % 2;
+    }
+  }
+};
 
 class PolyRange {
 private:
@@ -229,19 +199,18 @@ private:
   string &res;
   int n_vars, beg, end;
   mutex &m_;
+  Maker maker;
 
 public:
-
-  PolyRange(mutex &m,const string &p, string &r, int n, int b = 0, int e = -1) : \
-    m_(m), poly(p), res(r), n_vars(n), beg(b), end(e) {};
+  PolyRange(const Maker &mk,mutex &m,const string &p, string &r, int n, int b = 0, int e = -1) : \
+    maker(mk),m_(m), poly(p), res(r), n_vars(n), beg(b), end(e) {};
 
   void operator() () {
-    makeVec(poly, res, n_vars, beg, end);
+    maker(poly, res, beg, end);
     m_.unlock();
   }
 
   friend ostream& ::operator<<(ostream& out, const PolyRange& pr) {
-    //out<<"poly: "<<pr.poly<<"\nres: "<<pr.res<<"\nrange: ("<<pr.beg<<", "<<pr.end<<")\n";
     out << "("<<pr.beg<<", "<<pr.end<<")"<<" "<<pr.poly<<endl;
 
   	return out;
@@ -267,7 +236,7 @@ int snd(int all, int ns, int r) {
   }
 }
 
-void Reader(int i, int n_vars, myBlockingQueue<PolyRange> &q, int ns) {
+void Reader(int i, int n_vars, myBlockingQueue<PolyRange> &q, int ns, Maker mk) {
   M.lock();
   //cout << ns << " Hello, Reader " << i << "!\n";
   M.unlock();
@@ -283,26 +252,21 @@ void Reader(int i, int n_vars, myBlockingQueue<PolyRange> &q, int ns) {
   while (poly >> s) {
     res = string(all,'0');
 
-    M.lock();
+    /*M.lock();
     std::cout << "I R" << i << " " << s << std::endl;
-    M.unlock();
+    M.unlock();*/
 
-    //d.lock();
     for (int r = 0; r < ns; ++r) {
       solvers[r].lock();
-      q.push(PolyRange(solvers[r],s,res,n_vars,fst(all,ns,r),snd(all,ns,r)));
+      q.push(PolyRange(mk,solvers[r],s,res,n_vars,fst(all,ns,r),snd(all,ns,r)));
     }
-    /*for (int r = 0; r < ns; ++r) {
-      q.push(PolyRange(solvers[r],s,res,n_vars,r*(all/ns + 1),min((r+1)*(all/ns + 1), all)));
-    }*/
 
-    //d.lock();
     for (int i = 0; i < ns; ++i) {
       solvers[i].lock();
     }
-    //sleep(2);
+
     M.lock();
-    std::cout << "O R" << i << " " << res << std::endl;
+    //std::cout << "O R" << i << " " << res << std::endl;
     out << res << endl;
     M.unlock();
 
@@ -313,30 +277,28 @@ void Reader(int i, int n_vars, myBlockingQueue<PolyRange> &q, int ns) {
 }
 
 void Solver(int i, int n_vars, myBlockingQueue<PolyRange> &q) {
-  //sleep(1);
-  usleep(50);
-  M.lock();
-  //cout << "Hello, Solver " << i << "!\n";
-  M.unlock();
+  usleep(500);
+  /*M.lock();
+  cout << "Hello, Solver " << i << "!\n";
+  M.unlock();*/
   string s;
 
   while (!q.empty()) {
     PolyRange pr = q.pop();
     pr();
-    /*string res(pow2(n_vars),'0');
-    makeVec(s,res,n_vars);*/
 
-    M.lock();
+    /*M.lock();
     //cout << "I S" << i << " " << pr.gp() << endl;
     cout << "S" << i << " " << pr;// << res << endl;
-    M.unlock();
+    M.unlock();*/
 
-    usleep(50);
+    usleep(500);
   }
 }
 
 int main (int argc, char** argv) {
-  int n_vars = atoi(argv[1]), ns = 3, nr, i = 0;
+  int n_vars = atoi(argv[1]), ns = 2, nr, i = 0;
+  Maker maker(n_vars);
   if (argc == 3) {
     nr = atoi(argv[2]);
   } else {
@@ -344,35 +306,31 @@ int main (int argc, char** argv) {
   }
   //std::cout << n_vars << nr << std::endl;
 
-  string res(pow2(n_vars),'0');
+  /*string res(pow2(n_vars),'0');
   string poly = "x2+x1x3+x3";
-  PolyRange pr(M, poly, res, n_vars, 0, 8);
-  pr();
-  //makeVec(poly,res,3);
-  std::cout << res << endl <<  pr << std::endl;
+  //PolyRange pr(M, poly, res, n_vars, 0, 8);
+  //pr();
+  maker(poly,res);
+  //makeVec(poly,res,n_vars);
+  //std::cout << res << endl;// <<  pr << std::endl;*/
 
   thread readers[nr];
   thread solvers[ns];
   myBlockingQueue<PolyRange> q;
-  //vector<string> bins = allVectors(n_vars);
 
   for( i=0; i < nr; i++ ) {
-    M.lock();
+    /*M.lock();
     //cout << "main() : creating reader, " << i << endl;
-    M.unlock();
-    readers[i] = thread(Reader, i, n_vars, ref(q), ns);
+    M.unlock();*/
+    readers[i] = thread(Reader, i, n_vars, ref(q), ns, maker);
   }
 
-  /*for( i=0; i < nr; i++ ) {
-    readers[i].detach();
-  }*/
-
-  usleep(100);
+  //usleep(100);
 
   for( i=0; i < ns; i++ ) {
-    M.lock();
+    /*M.lock();
     //cout << "main() : creating solver, " << i << endl;
-    M.unlock();
+    M.unlock();*/
     solvers[i] = thread(Solver, i, n_vars, ref(q));
   }
 
@@ -386,5 +344,5 @@ int main (int argc, char** argv) {
 
   //sleep(20);
 
-  cout<<"\nAll done!\n";
+  //cout<<"\nAll done!\n";
 }
