@@ -314,6 +314,7 @@ void Reader(int i, int n_vars, myBlockingQueue<PolyRange> &q, int ns) {
 
 void Solver(int i, int n_vars, myBlockingQueue<PolyRange> &q) {
   //sleep(1);
+  usleep(50);
   M.lock();
   //cout << "Hello, Solver " << i << "!\n";
   M.unlock();
@@ -330,19 +331,25 @@ void Solver(int i, int n_vars, myBlockingQueue<PolyRange> &q) {
     cout << "S" << i << " " << pr;// << res << endl;
     M.unlock();
 
-    usleep(100);
+    usleep(50);
   }
 }
 
-int main () {
-  int ns = 3, nr = 4, n_vars = 3, i = 0;
+int main (int argc, char** argv) {
+  int n_vars = atoi(argv[1]), ns = 3, nr, i = 0;
+  if (argc == 3) {
+    nr = atoi(argv[2]);
+  } else {
+    nr = atoi(argv[3]);
+  }
+  //std::cout << n_vars << nr << std::endl;
 
-  /*string res(pow2(n_vars),'0');
-  string poly = "x1x2+x1";
+  string res(pow2(n_vars),'0');
+  string poly = "x2+x1x3+x3";
   PolyRange pr(M, poly, res, n_vars, 0, 8);
   pr();
   //makeVec(poly,res,3);
-  std::cout << res << endl <<  pr << std::endl;*/
+  std::cout << res << endl <<  pr << std::endl;
 
   thread readers[nr];
   thread solvers[ns];
