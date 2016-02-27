@@ -188,7 +188,7 @@ public:
 
     vector<string> v = map(bind(code,_1,n_vars), split(poly, '+'));
     for (int i = beg; i < end; ++i) {
-      res[i] = '0' + filter(bind(le,_1,all_vectors[i]), v).size() % 2;
+      res[i - beg] = '0' + filter(bind(le,_1,all_vectors[i]), v).size() % 2;
     }
   }
 };
@@ -248,21 +248,24 @@ void Reader(int i, int n_vars, myBlockingQueue<PolyRange> &q, int ns, Maker mk) 
   ofstream out(ofname);
   int all = pow2(n_vars);
   string s;
+  string resulsts[ns];
   string res;
   while (poly >> s) {
-    res = string(all,'0');
-
+    //res = string(all,'0');
+    res = string();
     /*M.lock();
     std::cout << "I R" << i << " " << s << std::endl;
     M.unlock();*/
 
     for (int r = 0; r < ns; ++r) {
+      resulsts[r] = string(snd(all,ns,r)-fst(all,ns,r),'0');
       solvers[r].lock();
-      q.push(PolyRange(mk,solvers[r],s,res,n_vars,fst(all,ns,r),snd(all,ns,r)));
+      q.push(PolyRange(mk,solvers[r],s,resulsts[r],n_vars,fst(all,ns,r),snd(all,ns,r)));
     }
 
     for (int i = 0; i < ns; ++i) {
       solvers[i].lock();
+      res += resulsts[i];
     }
 
     M.lock();
