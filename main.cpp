@@ -111,7 +111,10 @@ private:
   mutex mutex_;
   queue<T> queue_;
   condition_variable cond_;
+  int nr_;
 public:
+  myBlockingQueue(int nr) {nr_ = nr;}
+
   T pop() {
     unique_lock<mutex> mlock(mutex_);
     while (queue_.empty()) {
@@ -129,12 +132,12 @@ public:
     cond_.notify_one();
   }
 
-  bool empty() {
+  /*bool empty() {
     this->mutex_.lock();
     bool check = this->queue_.empty();
-    this->mutex_.unlock();
+  his->mutex_.unlock();
     return check;
-  }
+  }*/
 };
 
 class Maker {
@@ -188,26 +191,30 @@ public:
 
     vector<string> v = map(bind(code,_1,n_vars), split(poly, '+'));
     for (int i = beg; i < end; ++i) {
-      res[i - beg] = '0' + filter(bind(le,_1,all_vectors[i]), v).size() % 2;
+      res[i] = '0' + filter(bind(le,_1,all_vectors[i]), v).size() % 2;
     }
   }
 };
 
 class PolyRange {
 private:
-  string poly;
   string &res;
-  int n_vars, beg, end;
   mutex &m_;
+  string poly;
+  int n_vars, beg, end;
   Maker maker;
+  //bool emp;
 
 public:
-  PolyRange(const Maker &mk,mutex &m,const string &p, string &r, int n, int b = 0, int e = -1) : \
+
+  PolyRange(mutex &m,string &r,const string &p,const Maker &mk,int n=0,int b=0,int e=-1) : \
     maker(mk),m_(m), poly(p), res(r), n_vars(n), beg(b), end(e) {};
 
-  void operator() () {
+  bool operator() () {
     maker(poly, res, beg, end);
     m_.unlock();
+
+    return true;
   }
 
   friend ostream& ::operator<<(ostream& out, const PolyRange& pr) {
@@ -251,25 +258,27 @@ void Reader(int i, int n_vars, myBlockingQueue<PolyRange> &q, int ns, Maker mk) 
   string resulsts[ns];
   string res;
   while (poly >> s) {
-    //res = string(all,'0');
-    res = string();
-    /*M.lock();
+    res = string(all,'0');
+    //res = string();
+    M.lock();
     std::cout << "I R" << i << " " << s << std::endl;
-    M.unlock();*/
+    M.unlock();
 
     for (int r = 0; r < ns; ++r) {
       resulsts[r] = string(snd(all,ns,r)-fst(all,ns,r),'0');
       solvers[r].lock();
-      q.push(PolyRange(mk,solvers[r],s,resulsts[r],n_vars,fst(all,ns,r),snd(all,ns,r)));
+      //q.push(PolyRange(solvers[r],resulsts[r],s,mk,n_vars,fst(all,ns,r),snd(all,ns,r)));
+      q.push(PolyRange(solvers[r],res,s,mk,n_vars,fst(all,ns,r),snd(all,ns,r)));
+
     }
 
     for (int i = 0; i < ns; ++i) {
       solvers[i].lock();
-      res += resulsts[i];
+      //res += resulsts[i];
     }
 
     M.lock();
-    //std::cout << "O R" << i << " " << res << std::endl;
+    std::cout << "O R" << i << " " << res << std::endl;
     out << res << endl;
     M.unlock();
 
@@ -280,27 +289,31 @@ void Reader(int i, int n_vars, myBlockingQueue<PolyRange> &q, int ns, Maker mk) 
 }
 
 void Solver(int i, int n_vars, myBlockingQueue<PolyRange> &q) {
-  usleep(500);
+  //usleep(500);
   /*M.lock();
   cout << "Hello, Solver " << i << "!\n";
   M.unlock();*/
   string s;
 
-  while (!q.empty()) {
+  while (true) {
     PolyRange pr = q.pop();
     pr();
 
-    /*M.lock();
+    M.lock();
     //cout << "I S" << i << " " << pr.gp() << endl;
     cout << "S" << i << " " << pr;// << res << endl;
-    M.unlock();*/
+    M.unlock();
 
-    usleep(500);
+    //usleep(500);
   }
+
+  M.lock();
+  cout << "Buy, Solver " << i << "!\n";
+  M.unlock();
 }
 
 int main (int argc, char** argv) {
-  int n_vars = atoi(argv[1]), ns = 2, nr, i = 0;
+  int n_vars = atoi(argv[1]), ns = 3, nr, i = 0;
   Maker maker(n_vars);
   if (argc == 3) {
     nr = atoi(argv[2]);
@@ -319,7 +332,7 @@ int main (int argc, char** argv) {
 
   thread readers[nr];
   thread solvers[ns];
-  myBlockingQueue<PolyRange> q;
+  myBlockingQueue<PolyRange> q(nr);
 
   for( i=0; i < nr; i++ ) {
     /*M.lock();
@@ -342,10 +355,10 @@ int main (int argc, char** argv) {
   }
 
   for( i=0; i < ns; i++ ) {
-    solvers[i].join();
+    solvers[i].detach();
   }
 
   //sleep(20);
 
-  //cout<<"\nAll done!\n";
+  cout<<"\nAll done!\n";
 }
